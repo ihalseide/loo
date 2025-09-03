@@ -1406,8 +1406,8 @@ static void test_then_block (LexState *ls, int *escapelist) {
     gotostat(ls, v.t);  /* handle goto/break */
     skipnoopstat(ls);  /* skip other no-op statements */
     if (block_follow(ls, 0)) {  /* 'goto' is the entire block? */
-      leaveblock(fs);
       checknext(ls, '}');
+      leaveblock(fs);
       return;  /* and that is it */
     }
     else  /* must skip over 'then' part if condition is false */
@@ -1419,12 +1419,12 @@ static void test_then_block (LexState *ls, int *escapelist) {
     jf = v.f;
   }
   statlist(ls);  /* 'then' part */
+  checknext(ls, '}');
   leaveblock(fs);
   if (ls->t.token == TK_ELSE ||
       ls->t.token == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
     luaK_concat(fs, escapelist, luaK_jump(fs));  /* must jump over it */
   luaK_patchtohere(fs, jf);
-  checknext(ls, '}');
 }
 
 
