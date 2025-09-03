@@ -438,23 +438,31 @@ static int llex (LexState *ls, SemInfo *seminfo) {
         next(ls);
         break;
       }
-      case '-': {  /* '-' or '--' (comment) */
+      case '/': {  /* '/' or '//' or '*' (comment) */
         next(ls);
-        if (ls->current != '-') return '-';
-        /* else is a comment */
-        next(ls);
-        if (ls->current == '[') {  /* long comment? */
-          int sep = skip_sep(ls);
-          luaZ_resetbuffer(ls->buff);  /* 'skip_sep' may dirty the buffer */
-          if (sep >= 0) {
-            read_long_string(ls, NULL, sep);  /* skip long comment */
-            luaZ_resetbuffer(ls->buff);  /* previous call may dirty the buff. */
-            break;
+        if (ls->current == '/') {
+          /* short comment */
+          next(ls);
+          while (!currIsNewline(ls) && ls->current != EOZ) {
+            next(ls);  /* skip until end of line (or end of file) */
           }
         }
-        /* else short comment */
-        while (!currIsNewline(ls) && ls->current != EOZ)
-          next(ls);  /* skip until end of line (or end of file) */
+        else if (ls->current == '*') {
+          /* long comment - skip until slash-star pattern (or end of file) */
+          int prev = 'X';
+          do {
+            prev = ls->current;
+            next(ls);
+          } while (!(prev == '*' && ls->current == '/')
+              && (ls->current != EOZ));
+          if (ls->current != EOZ) {
+            next(ls);
+          }
+        }
+        else {
+          /* just a normal '/' division */
+          return '/';
+        }
         break;
       }
       case '[': {  /* long string or simply '[' */
@@ -484,10 +492,12 @@ static int llex (LexState *ls, SemInfo *seminfo) {
         else if (check_next1(ls, '>')) return TK_SHR;
         else return '>';
       }
-      case '/': {
+      case '\\': {
         next(ls);
-        if (check_next1(ls, '/')) return TK_IDIV;
+        return TK_IDIV;
+        /* if (check_next1(ls, '/')) return TK_IDIV;
         else return '/';
+        */
       }
       case '!': {
         next(ls);
