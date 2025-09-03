@@ -780,7 +780,7 @@ static void parlist (LexState *ls) {
 
 
 static void body (LexState *ls, expdesc *e, int ismethod, int line) {
-  /* body ->  '(' parlist ')' block END */
+  /* body ->  '(' parlist ')' DO block END */
   FuncState new_fs;
   BlockCnt bl;
   new_fs.f = addprototype(ls);
@@ -793,6 +793,7 @@ static void body (LexState *ls, expdesc *e, int ismethod, int line) {
   }
   parlist(ls);
   checknext(ls, ')');
+  checknext(ls, TK_DO);
   statlist(ls);
   new_fs.f->lastlinedefined = ls->linenumber;
   check_match(ls, TK_END, TK_FUNCTION, line);
@@ -1239,14 +1240,16 @@ static void labelstat (LexState *ls, TString *label, int line) {
 
 
 static void whilestat (LexState *ls, int line) {
-  /* whilestat -> WHILE cond DO block END */
+  /* whilestat -> WHILE '(' cond ')' DO block END */
   FuncState *fs = ls->fs;
   int whileinit;
   int condexit;
   BlockCnt bl;
   luaX_next(ls);  /* skip WHILE */
   whileinit = luaK_getlabel(fs);
+  checknext(ls, '(');
   condexit = cond(ls);
+  checknext(ls, ')');
   enterblock(fs, &bl, 1);
   checknext(ls, TK_DO);
   block(ls);
@@ -1258,7 +1261,7 @@ static void whilestat (LexState *ls, int line) {
 
 
 static void repeatstat (LexState *ls, int line) {
-  /* repeatstat -> REPEAT block UNTIL cond */
+  /* repeatstat -> REPEAT block UNTIL '(' cond ')' */
   int condexit;
   FuncState *fs = ls->fs;
   int repeat_init = luaK_getlabel(fs);
@@ -1268,7 +1271,9 @@ static void repeatstat (LexState *ls, int line) {
   luaX_next(ls);  /* skip REPEAT */
   statlist(ls);
   check_match(ls, TK_UNTIL, TK_REPEAT, line);
+  checknext(ls, '(');
   condexit = cond(ls);  /* read condition (inside scope block) */
+  checknext(ls, ')');
   if (bl2.upval)  /* upvalues? */
     luaK_patchclose(fs, condexit, bl2.nactvar);
   leaveblock(fs);  /* finish scope */
@@ -1380,14 +1385,16 @@ static void forstat (LexState *ls, int line) {
 
 
 static void test_then_block (LexState *ls, int *escapelist) {
-  /* test_then_block -> [IF | ELSEIF] cond THEN block */
+  /* test_then_block -> [IF | ELSEIF] '(' cond ')' DO block */
   BlockCnt bl;
   FuncState *fs = ls->fs;
   expdesc v;
   int jf;  /* instruction to skip 'then' code (if condition is false) */
   luaX_next(ls);  /* skip IF or ELSEIF */
+  checknext(ls, '(');
   expr(ls, &v);  /* read condition */
-  checknext(ls, TK_THEN);
+  checknext(ls, ')');
+  checknext(ls, TK_DO);
   if (ls->t.token == TK_GOTO || ls->t.token == TK_BREAK) {
     luaK_goiffalse(ls->fs, &v);  /* will jump to label if condition is true */
     enterblock(fs, &bl, 0);  /* must enter block before 'goto' */
@@ -1415,12 +1422,12 @@ static void test_then_block (LexState *ls, int *escapelist) {
 
 
 static void ifstat (LexState *ls, int line) {
-  /* ifstat -> IF cond THEN block {ELSEIF cond THEN block} [ELSE block] END */
+  /* ifstat -> IF '(' cond ')' DO block {ELSEIF '(' cond ')' DO block} [ELSE DO block] END */
   FuncState *fs = ls->fs;
   int escapelist = NO_JUMP;  /* exit list for finished parts */
-  test_then_block(ls, &escapelist);  /* IF cond THEN block */
+  test_then_block(ls, &escapelist);  /* IF '(' cond ')' DO block */
   while (ls->t.token == TK_ELSEIF)
-    test_then_block(ls, &escapelist);  /* ELSEIF cond THEN block */
+    test_then_block(ls, &escapelist);  /* ELSEIF '(' cond ')' DO block */
   if (testnext(ls, TK_ELSE))
     block(ls);  /* 'else' part */
   check_match(ls, TK_END, TK_IF, line);
