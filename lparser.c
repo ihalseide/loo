@@ -1240,7 +1240,7 @@ static void labelstat (LexState *ls, TString *label, int line) {
 
 
 static void whilestat (LexState *ls, int line) {
-  /* whilestat -> WHILE '(' cond ')' DO block END */
+  /* whilestat -> WHILE '(' cond ')' '{' block '}' */
   FuncState *fs = ls->fs;
   int whileinit;
   int condexit;
@@ -1251,17 +1251,17 @@ static void whilestat (LexState *ls, int line) {
   condexit = cond(ls);
   checknext(ls, ')');
   enterblock(fs, &bl, 1);
-  checknext(ls, TK_DO);
+  checknext(ls, '{');
   block(ls);
   luaK_jumpto(fs, whileinit);
-  check_match(ls, TK_END, TK_WHILE, line);
+  check_match(ls, '}', TK_WHILE, line);
   leaveblock(fs);
   luaK_patchtohere(fs, condexit);  /* false conditions finish the loop */
 }
 
 
 static void repeatstat (LexState *ls, int line) {
-  /* repeatstat -> REPEAT block UNTIL '(' cond ')' */
+  /* repeatstat -> REPEAT '{' block '}' UNTIL '(' cond ')' */
   int condexit;
   FuncState *fs = ls->fs;
   int repeat_init = luaK_getlabel(fs);
@@ -1269,7 +1269,9 @@ static void repeatstat (LexState *ls, int line) {
   enterblock(fs, &bl1, 1);  /* loop block */
   enterblock(fs, &bl2, 0);  /* scope block */
   luaX_next(ls);  /* skip REPEAT */
+  checknext(ls, '{');
   statlist(ls);
+  check_match(ls, '}', TK_REPEAT, line);
   check_match(ls, TK_UNTIL, TK_REPEAT, line);
   checknext(ls, '(');
   condexit = cond(ls);  /* read condition (inside scope block) */
@@ -1294,12 +1296,12 @@ static int exp1 (LexState *ls) {
 
 
 static void forbody (LexState *ls, int base, int line, int nvars, int isnum) {
-  /* forbody -> DO block */
+  /* forbody -> '{' block */
   BlockCnt bl;
   FuncState *fs = ls->fs;
   int prep, endfor;
   adjustlocalvars(ls, 3);  /* control variables */
-  checknext(ls, TK_DO);
+  checknext(ls, '{');
   prep = isnum ? luaK_codeAsBx(fs, OP_FORPREP, base, NO_JUMP) : luaK_jump(fs);
   enterblock(fs, &bl, 0);  /* scope for declared variables */
   adjustlocalvars(ls, nvars);
@@ -1320,7 +1322,7 @@ static void forbody (LexState *ls, int base, int line, int nvars, int isnum) {
 
 
 static void fornum (LexState *ls, TString *varname, int line) {
-  /* fornum -> NAME = exp1,exp1[,exp1] forbody */
+  /* fornum -> NAME = exp1,exp1[,exp1] ')' forbody */
   FuncState *fs = ls->fs;
   int base = fs->freereg;
   new_localvarliteral(ls, "(for index)");
@@ -1337,12 +1339,13 @@ static void fornum (LexState *ls, TString *varname, int line) {
     luaK_codek(fs, fs->freereg, luaK_intK(fs, 1));
     luaK_reserveregs(fs, 1);
   }
+  checknext(ls, ')');
   forbody(ls, base, line, 1, 1);
 }
 
 
 static void forlist (LexState *ls, TString *indexname) {
-  /* forlist -> NAME {,NAME} IN explist forbody */
+  /* forlist -> NAME {,NAME} IN explist ')' forbody */
   FuncState *fs = ls->fs;
   expdesc e;
   int nvars = 4;  /* gen, state, control, plus at least one declared var */
@@ -1362,24 +1365,26 @@ static void forlist (LexState *ls, TString *indexname) {
   line = ls->linenumber;
   adjust_assign(ls, 3, explist(ls, &e), &e);
   luaK_checkstack(fs, 3);  /* extra space to call generator */
+  checknext(ls, ')');
   forbody(ls, base, line, nvars - 3, 0);
 }
 
 
 static void forstat (LexState *ls, int line) {
-  /* forstat -> FOR (fornum | forlist) END */
+  /* forstat -> FOR '(' (fornum | forlist) '}' */
   FuncState *fs = ls->fs;
   TString *varname;
   BlockCnt bl;
   enterblock(fs, &bl, 1);  /* scope for loop and control variables */
   luaX_next(ls);  /* skip 'for' */
+  checknext(ls, '(');
   varname = str_checkname(ls);  /* first variable name */
   switch (ls->t.token) {
     case '=': fornum(ls, varname, line); break;
     case ',': case TK_IN: forlist(ls, varname); break;
     default: luaX_syntaxerror(ls, "'=' or 'in' expected");
   }
-  check_match(ls, TK_END, TK_FOR, line);
+  check_match(ls, '}', TK_FOR, line);
   leaveblock(fs);  /* loop scope ('break' jumps to this point) */
 }
 
