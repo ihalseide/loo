@@ -28,7 +28,7 @@ function first(t) {
 t = { 1, 2, 3}
 first(t) // prints out 1
 
-// Let's try out CONTINUE
+// Let's try out CONTINUE and inequality (!=)
 for (i = 0, 8) {
   if (i % 2 != 1) {
     print("even")
@@ -43,3 +43,9 @@ for (i = 0, 8) {
 For programmers used to other languages, this makes it so you don't have to
 think about the different ways Lua approaches things and potentially make more
 mistakes.
+
+## Notes
+
+The syntax of the `continue` statement mirrors the `break` statement in Lua: it
+is not required to be the last statement in a block (unlike the `return`
+statement).
