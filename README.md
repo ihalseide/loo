@@ -3,7 +3,8 @@
 Loo is Lua 5.3 but with:
 - 0-based indices for tables
 - A *continue* statement
-- Increment and decrement statements
+- Inequality operator is `!=` instead of `~=`
+- WIP: Increment and decrement statements (var++ and var--)
 - C-style syntax for blocks (curly brackets)
 
 Now you can use Lua but with typical C-like programming language conventions.
