@@ -2,7 +2,7 @@
 
 Loo is Lua 5.3 but with:
 - 0-based indices for tables
-- A *continue* statement
+- A *continue* statement (which works for while loops, repeat loops, and both types of for loops)
 - Inequality operator is `!=` instead of `~=`
 - C-style syntax for blocks (curly brackets)
 
@@ -27,6 +27,15 @@ function first(t) {
 // Let's try out 0-based indices
 t = { 1, 2, 3}
 first(t) // prints out 1
+
+// Let's try out CONTINUE
+for (i = 0, 8) {
+  if (i % 2 != 1) {
+    print("even")
+    continue
+  }
+  print(i)
+}
 ```
 
 ## Motivation
