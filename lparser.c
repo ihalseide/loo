@@ -436,6 +436,17 @@ static void movegotosout (FuncState *fs, BlockCnt *bl) {
 }
 
 
+/*
+** create a label named 'continue' for continue statements
+*/
+static void continuelabel (LexState *ls) {
+  TString *n = luaS_new(ls->L, "continue");
+  int l = newlabelentry(ls, &ls->dyd->label, n, 0, ls->fs->pc);
+  /* This next line is actually needed */
+  findgotos(ls, &ls->dyd->label.arr[l]);
+}
+
+
 static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isloop) {
   bl->isloop = isloop;
   bl->nactvar = fs->nactvar;
@@ -479,7 +490,7 @@ static void leaveblock (FuncState *fs) {
     luaK_patchclose(fs, j, bl->nactvar);
     luaK_patchtohere(fs, j);
   }
-  if (bl->isloop)
+  if (bl->isloop) 
     breaklabel(ls);  /* close pending breaks */
   fs->bl = bl->previous;
   removevars(fs, bl->nactvar);
@@ -1189,8 +1200,12 @@ static void gotostat (LexState *ls, int pc) {
   int line = ls->linenumber;
   TString *label;
   int g;
-  if (testnext(ls, TK_GOTO))
+  if (testnext(ls, TK_GOTO)) {
     label = str_checkname(ls);
+  }
+  else if (testnext(ls, TK_CONTINUE)) {
+    label = luaS_new(ls->L, "continue");
+  }
   else {
     luaX_next(ls);  /* skip break */
     label = luaS_new(ls->L, "break");
@@ -1253,6 +1268,7 @@ static void whilestat (LexState *ls, int line) {
   enterblock(fs, &bl, 1);
   checknext(ls, '{');
   block(ls);
+  continuelabel(ls); /* any 'continue' jumps to after the last statement */
   luaK_jumpto(fs, whileinit);
   check_match(ls, '}', TK_WHILE, line);
   leaveblock(fs);
@@ -1273,6 +1289,7 @@ static void repeatstat (LexState *ls, int line) {
   statlist(ls);
   check_match(ls, '}', TK_REPEAT, line);
   check_match(ls, TK_UNTIL, TK_REPEAT, line);
+  continuelabel(ls); /* any 'continue' jumps to after the last statement */
   checknext(ls, '(');
   condexit = cond(ls);  /* read condition (inside scope block) */
   checknext(ls, ')');
@@ -1309,6 +1326,7 @@ static void forbody (LexState *ls, int base, int line, int nvars, int isnum) {
   block(ls);
   leaveblock(fs);  /* end of scope for declared variables */
   luaK_patchtohere(fs, prep);
+  continuelabel(ls); /* any 'continue' jumps to after the last statement */
   if (isnum)  /* numeric for? */
     endfor = luaK_codeAsBx(fs, OP_FORLOOP, base, NO_JUMP);
   else {  /* generic for */
@@ -1400,7 +1418,7 @@ static void test_then_block (LexState *ls, int *escapelist) {
   expr(ls, &v);  /* read condition */
   checknext(ls, ')');
   checknext(ls, '{');
-  if (ls->t.token == TK_GOTO || ls->t.token == TK_BREAK) {
+  if (ls->t.token == TK_GOTO || ls->t.token == TK_BREAK || ls->t.token == TK_CONTINUE) {
     luaK_goiffalse(ls->fs, &v);  /* will jump to label if condition is true */
     enterblock(fs, &bl, 0);  /* must enter block before 'goto' */
     gotostat(ls, v.t);  /* handle goto/break */
@@ -1605,6 +1623,7 @@ static void statement (LexState *ls) {
       break;
     }
     case TK_BREAK:   /* stat -> breakstat */
+    case TK_CONTINUE: /* stat -> 'continue' */
     case TK_GOTO: {  /* stat -> 'goto' NAME */
       gotostat(ls, luaK_jump(ls->fs));
       break;
