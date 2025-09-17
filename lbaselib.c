@@ -244,8 +244,8 @@ static int luaB_pairs (lua_State *L) {
 ** Traversal function for 'ipairs'
 */
 static int ipairsaux (lua_State *L) {
-  lua_Integer i = luaL_checkinteger(L, 2) + 1;
-  lua_pushinteger(L, i);
+  lua_Integer i = luaL_checkinteger(L, 2);
+  lua_pushinteger(L, i + 1);
   return (lua_geti(L, 1, i) == LUA_TNIL) ? 1 : 2;
 }
 
@@ -261,7 +261,7 @@ static int luaB_ipairs (lua_State *L) {
   luaL_checkany(L, 1);
   lua_pushcfunction(L, ipairsaux);  /* iteration function */
   lua_pushvalue(L, 1);  /* state */
-  lua_pushinteger(L, -1);  /* initial value */
+  lua_pushinteger(L, 0);  /* initial value */
   return 3;
 #endif
 }
